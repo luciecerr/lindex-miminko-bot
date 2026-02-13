@@ -25,7 +25,7 @@ def get_products():
         browser = p.chromium.launch()
         page = browser.new_page()
         page.goto(URL)
-        page.wait_for_timeout(5000)  # počkej 5 s, aby se načetly produkty
+        page.wait_for_timeout(10000)  # počkej 5 s, aby se načetly produkty
         html = page.content()
         browser.close()
 
