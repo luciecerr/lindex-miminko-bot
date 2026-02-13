@@ -3,6 +3,7 @@ import time
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 import requests
+import datetime  # pokud ještě není importováno
 
 URL = "https://www.lindex.com/cz/outlet/miminko?hl=cs&page=1"
 CHECK_INTERVAL = 180  # kontrola každé 3 minuty
