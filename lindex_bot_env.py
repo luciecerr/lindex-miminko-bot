@@ -1,47 +1,53 @@
-import os
 import time
+import os
+import datetime
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 import requests
-import datetime  # pokud ještě není importováno
 
-URL = "https://www.lindex.com/cz/outlet/miminko?hl=cs&page=1"
-CHECK_INTERVAL = 180  # kontrola každé 3 minuty
-
-# Environment Variables
+# Telegram token a chat ID z Environment Variables
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-previous_products = set()
+# Interval kontroly v sekundách
+CHECK_INTERVAL = 300  # 5 minut, můžeš změnit na 180 pro 3 minuty
+
+# URL výprodeje
+URL = "https://www.lindex.com/cz/outlet/miminko?hl=cs&page=1"
 
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    data = {"chat_id": CHAT_ID, "text": message}
-    requests.post(url, data=data)
+    payload = {"chat_id": CHAT_ID, "text": message}
+    try:
+        requests.post(url, data=payload)
+    except Exception as e:
+        print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Chyba při odesílání Telegram zprávy: {e}")
 
 def get_products():
     products = set()
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(URL)
-        page.wait_for_timeout(10000)  # počkej 5 s, aby se načetly produkty
+        # počká až se produkty načtou, max 15s
+        page.wait_for_selector("div.product-tile", timeout=15000)
         html = page.content()
+        soup = BeautifulSoup(html, "html.parser")
+        # najde všechny produkty
+        for item in soup.find_all("div", class_="product-tile"):
+            a_tag = item.find("a")
+            if a_tag:
+                href = a_tag.get("href")
+                products.add("https://www.lindex.com" + href)
         browser.close()
-
-    soup = BeautifulSoup(html, "html.parser")
-    for item in soup.find_all("a"):
-        href = item.get("href")
-        if href and "/p/" in href:
-            products.add("https://www.lindex.com" + href)
     return products
+
+previous_products = set()
 
 while True:
     try:
-        # časová značka pro log
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f"[{now}] Kontrola Lindex Miminko výprodeje…")
-
         current_products = get_products()
         new_products = current_products - previous_products
 
